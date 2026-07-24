@@ -1,10 +1,22 @@
 package com.nythral.chronos.client;
 
+import com.nythral.chronos.ChronosTimer;
+import com.nythral.chronos.client.config.ChronosConfigManager;
+import com.nythral.lib.client.api.NythralModuleRegistry;
 import net.fabricmc.api.ClientModInitializer;
 
-public class ChronosTimerClient implements ClientModInitializer {
+public final class ChronosTimerClient implements ClientModInitializer {
+
 	@Override
 	public void onInitializeClient() {
-		// This entrypoint is suitable for setting up client-specific logic, such as rendering.
+		ChronosConfigManager.load();
+
+		NythralModuleRegistry.register(
+			new ChronosTimerModule()
+		);
+
+		ChronosTimer.LOGGER.info(
+			"Chronos Timer client initialized."
+		);
 	}
 }
