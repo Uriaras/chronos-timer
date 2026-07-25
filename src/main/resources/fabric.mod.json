@@ -22,6 +22,12 @@
 			"com.nythral.chronos.client.ChronosTimerClient"
 		]
 	},
+	"mixins": [
+		{
+			"config": "chronos-timer.client.mixins.json",
+			"environment": "client"
+		}
+	],
 	"depends": {
 		"fabricloader": ">=0.19.3",
 		"minecraft": "~1.21.11",
