@@ -54,3 +54,44 @@ Layout: HORIZONTAL
 Display: TIMER
 Attachment: BOTTOM
 Opacity: 100%
+```
+
+## Building
+
+Clone the repository and run:
+
+```bash
+./gradlew build
+```
+
+On Windows PowerShell:
+
+```powershell
+.\gradlew.bat build
+```
+
+The generated mod file will be available in:
+
+```text
+build/libs
+```
+
+## Source code
+
+Source repository:
+
+```text
+https://github.com/Uriaras/chronos-timer
+```
+
+Issues:
+
+```text
+https://github.com/Uriaras/chronos-timer/issues
+```
+
+## License
+
+Chronos Timer is available under the MIT License.
+
+See the `LICENSE` file for details.
