@@ -11,7 +11,7 @@
 		"sources": "https://github.com/Uriaras/chronos-timer",
 		"issues": "https://github.com/Uriaras/chronos-timer/issues"
 	},
-	"license": "CC0-1.0",
+	"license": "MIT",
 	"icon": "assets/chronos-timer/icon.png",
 	"environment": "client",
 	"entrypoints": {
@@ -32,7 +32,7 @@
 		"fabricloader": ">=0.19.3",
 		"minecraft": "~1.21.11",
 		"java": ">=21",
-		"fabric-api": "*",
+		"fabric-api": ">=0.141.5+1.21.11",
 		"nythral-lib": ">=1.0.0"
 	}
 }
