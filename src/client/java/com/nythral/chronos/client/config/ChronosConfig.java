@@ -69,7 +69,7 @@ public final class ChronosConfig {
 		this.layout =
 			layout != null
 				? layout
-				: ChronosLayout.VERTICAL;
+				: ChronosLayout.HORIZONTAL;
 	}
 
 	public void nextLayout() {
@@ -104,7 +104,7 @@ public final class ChronosConfig {
 		this.attachment =
 			attachment != null
 				? attachment
-				: ChronosAttachment.SIDE;
+				: ChronosAttachment.BOTTOM;
 	}
 
 	public void nextAttachment() {
@@ -129,9 +129,9 @@ public final class ChronosConfig {
 		this.enabled = true;
 		this.anchor = ChronosAnchor.TOP;
 		this.side = ChronosSide.RIGHT;
-		this.layout = ChronosLayout.VERTICAL;
+		this.layout = ChronosLayout.HORIZONTAL;
 		this.displayMode = ChronosDisplayMode.TIMER;
-		this.attachment = ChronosAttachment.SIDE;
+		this.attachment = ChronosAttachment.BOTTOM;
 		this.opacity = DEFAULT_OPACITY;
 	}
 

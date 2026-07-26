@@ -7,9 +7,14 @@ import com.nythral.chronos.client.config.ChronosConfig;
 import com.nythral.chronos.client.config.ChronosDisplayMode;
 import com.nythral.chronos.client.config.ChronosLayout;
 import com.nythral.chronos.client.config.ChronosSide;
+import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
@@ -40,6 +45,11 @@ public final class ChronosHud {
 			"textures/gui/top_ambient.png"
 		);
 
+	private static final Identifier TOP_FILL_TEXTURE =
+		ChronosTimer.id(
+			"textures/gui/top_fill.png"
+		);
+
 	private static final Identifier TIMER_TEXTURE =
 		ChronosTimer.id(
 			"textures/gui/timer.png"
@@ -49,6 +59,9 @@ public final class ChronosHud {
 		ChronosTimer.id(
 			"textures/gui/timer_ambient.png"
 		);
+
+	private static final Map<String, Integer> MAX_EFFECT_DURATIONS =
+		new HashMap<>();
 
 	private static final int ICON_BOX_SIZE = 24;
 	private static final int ICON_SIZE = 18;
@@ -73,11 +86,12 @@ public final class ChronosHud {
 	private static final int EFFECT_GAP = 1;
 	private static final int HORIZONTAL_ELEMENT_GAP = 1;
 
-	private static final int SCREEN_MARGIN_X = 6;
-	private static final int SCREEN_MARGIN_Y = 6;
+	private static final int SCREEN_MARGIN_X = 1;
+	private static final int SCREEN_MARGIN_Y = 1;
 
-	private static final int TEXT_OFFSET_Y = 0;
-	private static final int SIDE_TEXT_EXTRA_OFFSET_Y = 1;
+	private static final int TOP_TEXT_OFFSET_Y = 2;
+	private static final int BOTTOM_TEXT_OFFSET_Y = 0;
+	private static final int SIDE_TEXT_OFFSET_Y = 2;
 
 	private static final int TOP_TEXT_OFFSET_X = 0;
 	private static final int TOP_TEXT_WIDTH = 20;
@@ -86,6 +100,14 @@ public final class ChronosHud {
 	private static final int TIMER_CONNECTOR_WIDTH = 3;
 	private static final int TIMER_TEXT_WIDTH = 24;
 	private static final int TIMER_TEXT_HEIGHT = 14;
+
+	private static final int EFFECT_LEVEL_OFFSET_X = 3;
+	private static final int EFFECT_LEVEL_OFFSET_Y = 3;
+	private static final int EFFECT_LEVEL_COLOR = 0xFFFFFFFF;
+
+	private static final int WARNING_TIME_SECONDS = 10;
+	private static final int NORMAL_TEXT_COLOR = 0xFFFFFFFF;
+	private static final int WARNING_TEXT_COLOR = 0xFFFF0000;
 
 	private ChronosHud() {
 	}
@@ -114,8 +136,14 @@ public final class ChronosHud {
 			);
 
 		if (entries.isEmpty()) {
+			MAX_EFFECT_DURATIONS.clear();
+
 			return;
 		}
+
+		updateTrackedEffectDurations(
+			entries
+		);
 
 		if (
 			config.layout()
@@ -170,6 +198,17 @@ public final class ChronosHud {
 				config.anchor()
 			);
 
+		if (
+			config.anchor()
+				== ChronosAnchor.TOP
+				&& config.attachment()
+					== ChronosAttachment.TOP
+		) {
+			firstIconY +=
+				TOP_TEXTURE_HEIGHT
+					- TEXTURE_OVERLAP;
+		}
+
 		int iconX =
 			calculateVerticalIconX(
 				graphics.guiWidth(),
@@ -216,6 +255,17 @@ public final class ChronosHud {
 				graphics.guiHeight(),
 				config.anchor()
 			);
+
+		if (
+			config.anchor()
+				== ChronosAnchor.TOP
+				&& config.attachment()
+					== ChronosAttachment.TOP
+		) {
+			iconY +=
+				TOP_TEXTURE_HEIGHT
+					- TEXTURE_OVERLAP;
+		}
 
 		if (
 			config.side()
@@ -284,12 +334,62 @@ public final class ChronosHud {
 			entries.add(
 				new ChronosEffectEntry(
 					effect,
-					formatDuration(effect)
+					formatDuration(
+						effect
+					)
 				)
 			);
 		}
 
 		return entries;
+	}
+
+	private static void updateTrackedEffectDurations(
+		List<ChronosEffectEntry> entries
+	) {
+		Set<String> activeKeys =
+			new HashSet<>();
+
+		for (
+			ChronosEffectEntry entry
+				: entries
+		) {
+			MobEffectInstance effect =
+				entry.effect();
+
+			String key =
+				createEffectKey(
+					effect
+				);
+
+			activeKeys.add(
+				key
+			);
+
+			if (
+				!effect.isInfiniteDuration()
+			) {
+				int remainingTicks =
+					Math.max(
+						1,
+						effect.getDuration()
+					);
+
+				MAX_EFFECT_DURATIONS.merge(
+					key,
+					remainingTicks,
+					Math::max
+				);
+			}
+		}
+
+		MAX_EFFECT_DURATIONS.keySet()
+			.removeIf(
+				key ->
+					!activeKeys.contains(
+						key
+					)
+			);
 	}
 
 	private static void renderEntry(
@@ -308,10 +408,12 @@ public final class ChronosHud {
 
 		renderVanillaEffect(
 			graphics,
+			minecraft,
 			effect,
 			iconX,
 			iconY,
-			ambient
+			ambient,
+			config.opacity()
 		);
 
 		if (
@@ -361,10 +463,12 @@ public final class ChronosHud {
 
 	private static void renderVanillaEffect(
 		GuiGraphics graphics,
+		Minecraft minecraft,
 		MobEffectInstance effect,
 		int iconBoxX,
 		int iconBoxY,
-		boolean ambient
+		boolean ambient,
+		int opacity
 	) {
 		Identifier background =
 			ambient
@@ -377,7 +481,10 @@ public final class ChronosHud {
 			iconBoxX,
 			iconBoxY,
 			ICON_BOX_SIZE,
-			ICON_BOX_SIZE
+			ICON_BOX_SIZE,
+			calculateAlpha(
+				opacity
+			)
 		);
 
 		Identifier effectSprite =
@@ -407,6 +514,128 @@ public final class ChronosHud {
 			ICON_SIZE,
 			ICON_SIZE
 		);
+
+		renderEffectLevel(
+			graphics,
+			minecraft,
+			effect,
+			iconBoxX,
+			iconBoxY
+		);
+	}
+
+	private static void renderEffectLevel(
+		GuiGraphics graphics,
+		Minecraft minecraft,
+		MobEffectInstance effect,
+		int iconBoxX,
+		int iconBoxY
+	) {
+		int level =
+			effect.getAmplifier()
+				+ 1;
+
+		if (
+			level <= 1
+		) {
+			return;
+		}
+
+		String romanLevel =
+			toRomanNumeral(
+				level
+			);
+
+		int textWidth =
+			minecraft.font.width(
+				romanLevel
+			);
+
+		int textX =
+			iconBoxX
+				+ ICON_BOX_SIZE
+				- textWidth
+				- EFFECT_LEVEL_OFFSET_X;
+
+		int textY =
+			iconBoxY
+				+ EFFECT_LEVEL_OFFSET_Y;
+
+		graphics.drawString(
+			minecraft.font,
+			romanLevel,
+			textX,
+			textY,
+			EFFECT_LEVEL_COLOR,
+			true
+		);
+	}
+
+	private static String toRomanNumeral(
+		int value
+	) {
+		if (
+			value <= 0
+		) {
+			return "";
+		}
+
+		int[] values = {
+			1000,
+			900,
+			500,
+			400,
+			100,
+			90,
+			50,
+			40,
+			10,
+			9,
+			5,
+			4,
+			1
+		};
+
+		String[] numerals = {
+			"M",
+			"CM",
+			"D",
+			"CD",
+			"C",
+			"XC",
+			"L",
+			"XL",
+			"X",
+			"IX",
+			"V",
+			"IV",
+			"I"
+		};
+
+		StringBuilder result =
+			new StringBuilder();
+
+		int remaining =
+			value;
+
+		for (
+			int index = 0;
+			index < values.length;
+			index++
+		) {
+			while (
+				remaining >= values[index]
+			) {
+				result.append(
+					numerals[index]
+				);
+
+				remaining -=
+					values[index];
+			}
+		}
+
+		return result.toString();
 	}
 
 	private static void renderTopAttachment(
@@ -435,6 +664,26 @@ public final class ChronosHud {
 				- TOP_TEXTURE_HEIGHT
 				+ TEXTURE_OVERLAP;
 
+		if (
+			config.displayMode()
+				== ChronosDisplayMode.BAR
+		) {
+			drawBarTexture(
+				graphics,
+				texture,
+				textureX,
+				textureY,
+				0.0F,
+				true,
+				calculateEffectProgress(
+					entry.effect()
+				),
+				config.opacity()
+			);
+
+			return;
+		}
+
 		drawTexture(
 			graphics,
 			texture,
@@ -448,6 +697,7 @@ public final class ChronosHud {
 		renderTopBottomTimerText(
 			graphics,
 			minecraft,
+			entry.effect(),
 			entry.durationText(),
 			textureX,
 			textureY,
@@ -481,6 +731,26 @@ public final class ChronosHud {
 				+ ICON_BOX_SIZE
 				- TEXTURE_OVERLAP;
 
+		if (
+			config.displayMode()
+				== ChronosDisplayMode.BAR
+		) {
+			drawBarTexture(
+				graphics,
+				texture,
+				textureX,
+				textureY,
+				180.0F,
+				false,
+				calculateEffectProgress(
+					entry.effect()
+				),
+				config.opacity()
+			);
+
+			return;
+		}
+
 		drawRotatedTexture(
 			graphics,
 			texture,
@@ -495,6 +765,7 @@ public final class ChronosHud {
 		renderTopBottomTimerText(
 			graphics,
 			minecraft,
+			entry.effect(),
 			entry.durationText(),
 			textureX,
 			textureY,
@@ -517,6 +788,7 @@ public final class ChronosHud {
 		) {
 			renderSideBarAttachment(
 				graphics,
+				entry,
 				iconX,
 				iconY,
 				config,
@@ -575,7 +847,8 @@ public final class ChronosHud {
 				textureX,
 				textureY,
 				TIMER_TEXTURE_WIDTH,
-				TIMER_TEXTURE_HEIGHT
+				TIMER_TEXTURE_HEIGHT,
+				config.opacity()
 			);
 		} else {
 			textureX =
@@ -597,6 +870,7 @@ public final class ChronosHud {
 		renderSideTimerText(
 			graphics,
 			minecraft,
+			entry.effect(),
 			entry.durationText(),
 			textureX,
 			textureY,
@@ -606,6 +880,7 @@ public final class ChronosHud {
 
 	private static void renderSideBarAttachment(
 		GuiGraphics graphics,
+		ChronosEffectEntry entry,
 		int iconX,
 		int iconY,
 		ChronosConfig config,
@@ -625,6 +900,7 @@ public final class ChronosHud {
 
 		int textureX;
 		float rotation;
+		boolean fillFromRight;
 
 		if (
 			config.side()
@@ -637,6 +913,9 @@ public final class ChronosHud {
 
 			rotation =
 				270.0F;
+
+			fillFromRight =
+				false;
 		} else {
 			textureX =
 				iconX
@@ -645,16 +924,21 @@ public final class ChronosHud {
 
 			rotation =
 				90.0F;
+
+			fillFromRight =
+				true;
 		}
 
-		drawRotatedTexture(
+		drawBarTexture(
 			graphics,
 			texture,
 			textureX,
 			textureY,
-			SIDE_BAR_TEXTURE_WIDTH,
-			SIDE_BAR_TEXTURE_HEIGHT,
 			rotation,
+			fillFromRight,
+			calculateEffectProgress(
+				entry.effect()
+			),
 			config.opacity()
 		);
 	}
@@ -662,6 +946,7 @@ public final class ChronosHud {
 	private static void renderTopBottomTimerText(
 		GuiGraphics graphics,
 		Minecraft minecraft,
+		MobEffectInstance effect,
 		String text,
 		int textureX,
 		int textureY,
@@ -680,7 +965,12 @@ public final class ChronosHud {
 
 		int textAreaY =
 			textureY
-				+ TEXT_OFFSET_Y;
+				+ (
+					config.attachment()
+						== ChronosAttachment.BOTTOM
+							? BOTTOM_TEXT_OFFSET_Y
+							: TOP_TEXT_OFFSET_Y
+				);
 
 		drawCenteredText(
 			graphics,
@@ -689,13 +979,17 @@ public final class ChronosHud {
 			textAreaX,
 			textAreaY,
 			TOP_TEXT_WIDTH,
-			TOP_TEXT_HEIGHT
+			TOP_TEXT_HEIGHT,
+			calculateTimerTextColor(
+				effect
+			)
 		);
 	}
 
 	private static void renderSideTimerText(
 		GuiGraphics graphics,
 		Minecraft minecraft,
+		MobEffectInstance effect,
 		String text,
 		int textureX,
 		int textureY,
@@ -724,8 +1018,7 @@ public final class ChronosHud {
 
 		int textAreaY =
 			textureY
-				+ TEXT_OFFSET_Y
-				+ SIDE_TEXT_EXTRA_OFFSET_Y;
+				+ SIDE_TEXT_OFFSET_Y;
 
 		drawCenteredText(
 			graphics,
@@ -734,7 +1027,10 @@ public final class ChronosHud {
 			textAreaX,
 			textAreaY,
 			TIMER_TEXT_WIDTH,
-			TIMER_TEXT_HEIGHT
+			TIMER_TEXT_HEIGHT,
+			calculateTimerTextColor(
+				effect
+			)
 		);
 	}
 
@@ -745,7 +1041,8 @@ public final class ChronosHud {
 		int areaX,
 		int areaY,
 		int areaWidth,
-		int areaHeight
+		int areaHeight,
+		int textColor
 	) {
 		int textWidth =
 			minecraft.font.width(
@@ -774,9 +1071,195 @@ public final class ChronosHud {
 			text,
 			textX,
 			textY,
-			0xFFFFFFFF,
+			textColor,
 			true
 		);
+	}
+
+	private static void drawBarTexture(
+		GuiGraphics graphics,
+		Identifier baseTexture,
+		int x,
+		int y,
+		float rotationDegrees,
+		boolean fillFromRight,
+		float progress,
+		int opacity
+	) {
+		int rotatedWidth;
+		int rotatedHeight;
+
+		if (
+			rotationDegrees == 90.0F
+				|| rotationDegrees == 270.0F
+		) {
+			rotatedWidth =
+				TOP_TEXTURE_HEIGHT;
+
+			rotatedHeight =
+				TOP_TEXTURE_WIDTH;
+		} else {
+			rotatedWidth =
+				TOP_TEXTURE_WIDTH;
+
+			rotatedHeight =
+				TOP_TEXTURE_HEIGHT;
+		}
+
+		float centerX =
+			x
+				+ rotatedWidth / 2.0F;
+
+		float centerY =
+			y
+				+ rotatedHeight / 2.0F;
+
+		graphics.pose().pushMatrix();
+
+		graphics.pose().translate(
+			centerX,
+			centerY
+		);
+
+		graphics.pose().rotate(
+			(float) Math.toRadians(
+				rotationDegrees
+			)
+		);
+
+		graphics.pose().translate(
+			-TOP_TEXTURE_WIDTH / 2.0F,
+			-TOP_TEXTURE_HEIGHT / 2.0F
+		);
+
+		drawTexture(
+			graphics,
+			baseTexture,
+			0,
+			0,
+			TOP_TEXTURE_WIDTH,
+			TOP_TEXTURE_HEIGHT,
+			opacity
+		);
+
+		drawProgressFillTexture(
+			graphics,
+			progress,
+			opacity,
+			fillFromRight
+		);
+
+		graphics.pose().popMatrix();
+	}
+
+	private static void drawProgressFillTexture(
+		GuiGraphics graphics,
+		float progress,
+		int opacity,
+		boolean fillFromRight
+	) {
+		float safeProgress =
+			Math.max(
+				0.0F,
+				Math.min(
+					1.0F,
+					progress
+				)
+			);
+
+		int visibleWidth =
+			Math.round(
+				safeProgress
+					* TOP_TEXTURE_WIDTH
+			);
+
+		if (
+			visibleWidth <= 0
+		) {
+			return;
+		}
+
+		int sourceX =
+			fillFromRight
+				? TOP_TEXTURE_WIDTH - visibleWidth
+				: 0;
+
+		int destinationX =
+			sourceX;
+
+		int progressColor =
+			calculateProgressBarColor(
+				safeProgress,
+				opacity
+			);
+
+		graphics.blit(
+			RenderPipelines.GUI_TEXTURED,
+			TOP_FILL_TEXTURE,
+			destinationX,
+			0,
+			(float) sourceX,
+			0.0F,
+			visibleWidth,
+			TOP_TEXTURE_HEIGHT,
+			TOP_TEXTURE_WIDTH,
+			TOP_TEXTURE_HEIGHT,
+			progressColor
+		);
+	}
+
+	private static float calculateEffectProgress(
+		MobEffectInstance effect
+	) {
+		if (
+			effect.isInfiniteDuration()
+		) {
+			return 1.0F;
+		}
+
+		int remainingTicks =
+			Math.max(
+				0,
+				effect.getDuration()
+			);
+
+		String key =
+			createEffectKey(
+				effect
+			);
+
+		int maximumTicks =
+			MAX_EFFECT_DURATIONS.getOrDefault(
+				key,
+				Math.max(
+					1,
+					remainingTicks
+				)
+			);
+
+		if (
+			maximumTicks <= 0
+		) {
+			return 0.0F;
+		}
+
+		return Math.max(
+			0.0F,
+			Math.min(
+				1.0F,
+				remainingTicks
+					/ (float) maximumTicks
+			)
+		);
+	}
+
+	private static String createEffectKey(
+		MobEffectInstance effect
+	) {
+		return effect.getEffect()
+			.toString()
+			+ ":"
+			+ effect.getAmplifier();
 	}
 
 	private static void drawTexture(
@@ -788,17 +1271,6 @@ public final class ChronosHud {
 		int height,
 		int opacity
 	) {
-		int alpha =
-			Math.round(
-				opacity
-					/ 100.0F
-					* 255.0F
-			);
-
-		int color =
-			(alpha << 24)
-				| 0x00FFFFFF;
-
 		graphics.blit(
 			RenderPipelines.GUI_TEXTURED,
 			texture,
@@ -810,7 +1282,9 @@ public final class ChronosHud {
 			height,
 			width,
 			height,
-			color
+			calculateColor(
+				opacity
+			)
 		);
 	}
 
@@ -820,18 +1294,25 @@ public final class ChronosHud {
 		int x,
 		int y,
 		int width,
-		int height
+		int height,
+		int opacity
 	) {
 		graphics.blit(
+			RenderPipelines.GUI_TEXTURED,
 			texture,
 			x,
 			y,
-			x + width,
-			y + height,
-			1.0F,
+			(float) width,
 			0.0F,
-			0.0F,
-			1.0F
+			width,
+			height,
+			-width,
+			height,
+			width,
+			height,
+			calculateColor(
+				opacity
+			)
 		);
 	}
 
@@ -902,6 +1383,98 @@ public final class ChronosHud {
 		);
 
 		graphics.pose().popMatrix();
+	}
+
+	private static float calculateAlpha(
+		int opacity
+	) {
+		int safeOpacity =
+			Math.max(
+				0,
+				Math.min(
+					100,
+					opacity
+				)
+			);
+
+		return safeOpacity
+			/ 100.0F;
+	}
+
+	private static int calculateColor(
+		int opacity
+	) {
+		return calculateArgbColor(
+			opacity,
+			0x00FFFFFF
+		);
+	}
+
+	private static int calculateArgbColor(
+		int opacity,
+		int rgb
+	) {
+		int alpha =
+			Math.round(
+				calculateAlpha(
+					opacity
+				) * 255.0F
+			);
+
+		return (alpha << 24)
+			| (rgb & 0x00FFFFFF);
+	}
+
+	private static int calculateProgressBarColor(
+		float progress,
+		int opacity
+	) {
+		float safeProgress =
+			Math.max(
+				0.0F,
+				Math.min(
+					1.0F,
+					progress
+				)
+			);
+
+		int rgb =
+			Color.HSBtoRGB(
+				safeProgress / 3.0F,
+				1.0F,
+				1.0F
+			) & 0x00FFFFFF;
+
+		return 0xFF000000
+			| rgb;
+	}
+
+	private static int calculateTimerTextColor(
+		MobEffectInstance effect
+	) {
+		if (
+			effect.isInfiniteDuration()
+		) {
+			return NORMAL_TEXT_COLOR;
+		}
+
+		int remainingSeconds =
+			Math.max(
+				0,
+				(int) Math.ceil(
+					effect.getDuration()
+						/ 20.0
+				)
+			);
+
+		if (
+			remainingSeconds
+				<= WARNING_TIME_SECONDS
+		) {
+			return WARNING_TEXT_COLOR;
+		}
+
+		return NORMAL_TEXT_COLOR;
 	}
 
 	private static String formatDuration(
