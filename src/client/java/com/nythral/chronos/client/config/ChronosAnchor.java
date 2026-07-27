@@ -2,7 +2,7 @@ package com.nythral.chronos.client.config;
 
 public enum ChronosAnchor {
 	TOP("Top"),
-	CENTER("Center"),
+	CENTER("Middle"),
 	BOTTOM("Bottom");
 
 	private final String displayName;
