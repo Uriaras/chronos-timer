@@ -21,6 +21,7 @@ import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.effect.MobEffectCategory;
 import net.minecraft.world.effect.MobEffectInstance;
 
 public final class ChronosHud {
@@ -241,18 +242,64 @@ public final class ChronosHud {
 		List<ChronosEffectEntry> entries,
 		ChronosConfig config
 	) {
-		int elementWidth =
-			calculateHorizontalElementWidth(
+		List<ChronosEffectEntry> upperEntries =
+			new ArrayList<>();
+
+		List<ChronosEffectEntry> harmfulEntries =
+			new ArrayList<>();
+
+		for (
+			ChronosEffectEntry entry
+				: entries
+		) {
+			if (
+				isHarmfulEffect(
+					entry.effect()
+				)
+			) {
+				harmfulEntries.add(
+					entry
+				);
+			} else {
+				upperEntries.add(
+					entry
+				);
+			}
+		}
+
+		int rowCount = 0;
+
+		if (
+			!upperEntries.isEmpty()
+		) {
+			rowCount++;
+		}
+
+		if (
+			!harmfulEntries.isEmpty()
+		) {
+			rowCount++;
+		}
+
+		int rowStep =
+			calculateVerticalStep(
 				config
 			);
 
-		int step =
-			elementWidth
-				+ HORIZONTAL_ELEMENT_GAP;
+		int totalHeight =
+			calculateVerticalElementHeight(
+				config
+			)
+				+ Math.max(
+					0,
+					rowCount - 1
+				)
+				* rowStep;
 
-		int iconY =
-			calculateHorizontalIconY(
+		int firstRowIconY =
+			calculateVerticalStartY(
 				graphics.guiHeight(),
+				totalHeight,
 				config.anchor()
 			);
 
@@ -262,10 +309,61 @@ public final class ChronosHud {
 				&& config.attachment()
 					== ChronosAttachment.TOP
 		) {
-			iconY +=
+			firstRowIconY +=
 				TOP_TEXTURE_HEIGHT
 					- TEXTURE_OVERLAP;
 		}
+
+		if (
+			!upperEntries.isEmpty()
+		) {
+			renderHorizontalRow(
+				graphics,
+				minecraft,
+				upperEntries,
+				firstRowIconY,
+				config
+			);
+		}
+
+		if (
+			!harmfulEntries.isEmpty()
+		) {
+			int harmfulRowIconY =
+				firstRowIconY;
+
+			if (
+				!upperEntries.isEmpty()
+			) {
+				harmfulRowIconY +=
+					rowStep;
+			}
+
+			renderHorizontalRow(
+				graphics,
+				minecraft,
+				harmfulEntries,
+				harmfulRowIconY,
+				config
+			);
+		}
+	}
+
+	private static void renderHorizontalRow(
+		GuiGraphics graphics,
+		Minecraft minecraft,
+		List<ChronosEffectEntry> entries,
+		int iconY,
+		ChronosConfig config
+	) {
+		int elementWidth =
+			calculateHorizontalElementWidth(
+				config
+			);
+
+		int step =
+			elementWidth
+				+ HORIZONTAL_ELEMENT_GAP;
 
 		if (
 			config.side()
@@ -324,24 +422,89 @@ public final class ChronosHud {
 	private static List<ChronosEffectEntry> createEntries(
 		Collection<MobEffectInstance> activeEffects
 	) {
-		List<ChronosEffectEntry> entries =
+		List<ChronosEffectEntry> beaconEntries =
+			new ArrayList<>();
+
+		List<ChronosEffectEntry> regularEntries =
+			new ArrayList<>();
+
+		List<ChronosEffectEntry> harmfulEntries =
 			new ArrayList<>();
 
 		for (
 			MobEffectInstance effect
 				: activeEffects
 		) {
-			entries.add(
+			ChronosEffectEntry entry =
 				new ChronosEffectEntry(
 					effect,
 					formatDuration(
 						effect
 					)
+				);
+
+			if (
+				isHarmfulEffect(
+					effect
 				)
+			) {
+				harmfulEntries.add(
+					entry
+				);
+
+				continue;
+			}
+
+			if (
+				isBeaconEffect(
+					effect
+				)
+			) {
+				beaconEntries.add(
+					entry
+				);
+
+				continue;
+			}
+
+			regularEntries.add(
+				entry
 			);
 		}
 
+		List<ChronosEffectEntry> entries =
+			new ArrayList<>(
+				activeEffects.size()
+			);
+
+		entries.addAll(
+			beaconEntries
+		);
+
+		entries.addAll(
+			regularEntries
+		);
+
+		entries.addAll(
+			harmfulEntries
+		);
+
 		return entries;
+	}
+
+	private static boolean isBeaconEffect(
+		MobEffectInstance effect
+	) {
+		return effect.isAmbient();
+	}
+
+	private static boolean isHarmfulEffect(
+		MobEffectInstance effect
+	) {
+		return effect.getEffect()
+			.value()
+			.getCategory()
+				== MobEffectCategory.HARMFUL;
 	}
 
 	private static void updateTrackedEffectDurations(
@@ -1587,32 +1750,6 @@ public final class ChronosHud {
 		return (
 			screenHeight
 				- totalHeight
-		) / 2;
-	}
-
-	private static int calculateHorizontalIconY(
-		int screenHeight,
-		ChronosAnchor anchor
-	) {
-		if (
-			anchor
-				== ChronosAnchor.TOP
-		) {
-			return SCREEN_MARGIN_Y;
-		}
-
-		if (
-			anchor
-				== ChronosAnchor.BOTTOM
-		) {
-			return screenHeight
-				- SCREEN_MARGIN_Y
-				- ICON_BOX_SIZE;
-		}
-
-		return (
-			screenHeight
-				- ICON_BOX_SIZE
 		) / 2;
 	}
 
