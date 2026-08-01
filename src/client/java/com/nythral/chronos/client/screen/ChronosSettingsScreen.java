@@ -3,6 +3,7 @@ package com.nythral.chronos.client.screen;
 import com.nythral.chronos.client.config.ChronosConfig;
 import com.nythral.chronos.client.config.ChronosConfigManager;
 import com.nythral.lib.client.screen.NythralStyledScreen;
+import java.util.function.Supplier;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -26,7 +27,7 @@ public final class ChronosSettingsScreen extends NythralStyledScreen {
             button -> update(
                 config::toggleEnabled,
                 button,
-                enabledLabel()
+                this::enabledLabel
             )
         );
 
@@ -36,7 +37,7 @@ public final class ChronosSettingsScreen extends NythralStyledScreen {
             button -> update(
                 config::nextAnchor,
                 button,
-                anchorLabel()
+                this::anchorLabel
             )
         );
 
@@ -46,7 +47,7 @@ public final class ChronosSettingsScreen extends NythralStyledScreen {
             button -> update(
                 config::nextSide,
                 button,
-                sideLabel()
+                this::sideLabel
             )
         );
 
@@ -56,7 +57,7 @@ public final class ChronosSettingsScreen extends NythralStyledScreen {
             button -> update(
                 config::nextLayout,
                 button,
-                layoutLabel()
+                this::layoutLabel
             )
         );
 
@@ -66,7 +67,7 @@ public final class ChronosSettingsScreen extends NythralStyledScreen {
             button -> update(
                 config::nextDisplayMode,
                 button,
-                displayLabel()
+                this::displayLabel
             )
         );
 
@@ -76,7 +77,7 @@ public final class ChronosSettingsScreen extends NythralStyledScreen {
             button -> update(
                 config::nextAttachment,
                 button,
-                attachmentLabel()
+                this::attachmentLabel
             )
         );
 
@@ -112,10 +113,10 @@ public final class ChronosSettingsScreen extends NythralStyledScreen {
     private void update(
         Runnable change,
         Button button,
-        Component message
+        Supplier<Component> messageSupplier
     ) {
         change.run();
-        button.setMessage(message);
+        button.setMessage(messageSupplier.get());
         ChronosConfigManager.save();
     }
 
